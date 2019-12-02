@@ -1,16 +1,41 @@
 mod day1;
 mod day2;
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+use std::{env, error, fmt, fs, process, result};
+
+type Result<T> = result::Result<T, Box<dyn error::Error>>;
+
+#[derive(Debug)]
+struct Error<T> {
+    err: T,
+}
+
+impl<T> Error<T> {
+    fn boxed(err: T) -> Box<Self> {
+        Box::new(Self { err })
+    }
+}
+
+impl<T: fmt::Debug> fmt::Display for Error<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.err)
+    }
+}
+
+impl<T: fmt::Debug> error::Error for Error<T> {
+    fn cause(&self) -> Option<&dyn error::Error> {
+        Some(self)
+    }
+}
 
 fn usage() -> ! {
     eprintln!("usage: aoc2019 <day> [<input>]");
-    std::process::exit(1);
+    process::exit(1);
 }
 
 fn main() -> Result<()> {
     let (day, input) = {
-        let mut args = std::env::args().skip(1);
+        let mut args = env::args().skip(1);
         let d = if let Some(d) = args.next() {
             if let Ok(d) = d.parse() {
                 d
@@ -24,7 +49,7 @@ fn main() -> Result<()> {
         };
 
         let i = args.next().unwrap_or_else(|| format!("input/day{}", d));
-        let i = if let Ok(i) = std::fs::read_to_string(&i) {
+        let i = if let Ok(i) = fs::read_to_string(&i) {
             i
         } else {
             eprintln!("No such file: '{}'", &i);

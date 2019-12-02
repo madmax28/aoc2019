@@ -1,5 +1,3 @@
-use std::{error, fmt};
-
 #[derive(Debug)]
 enum Error {
     IllegalInstruction,
@@ -7,22 +5,10 @@ enum Error {
     OutputNotProduced,
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl error::Error for Error {
-    fn cause(&self) -> Option<&dyn error::Error> {
-        Some(self)
-    }
-}
-
 fn access(mem: &mut [usize], addr: usize) -> crate::Result<&mut usize> {
     Ok(mem
         .get_mut(addr)
-        .ok_or_else(|| Box::new(Error::AddressOutOfRange))?)
+        .ok_or_else(|| crate::Error::boxed(Error::AddressOutOfRange))?)
 }
 
 fn run(mem: &mut [usize]) -> crate::Result<()> {
@@ -38,7 +24,7 @@ fn run(mem: &mut [usize]) -> crate::Result<()> {
         match *access(mem, pc)? {
             1 => *access(mem, a3)? = *access(mem, a1)? + *access(mem, a2)?,
             2 => *access(mem, a3)? = *access(mem, a1)? * *access(mem, a2)?,
-            _ => return Err(Box::new(Error::IllegalInstruction)),
+            _ => return Err(crate::Error::boxed(Error::IllegalInstruction)),
         }
 
         pc += 4
@@ -83,5 +69,5 @@ pub fn part2(input: &str) -> crate::Result<usize> {
         }
     }
 
-    Err(Box::new(Error::OutputNotProduced))
+    Err(crate::Error::boxed(Error::OutputNotProduced))
 }
