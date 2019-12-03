@@ -1,7 +1,11 @@
 mod day1;
 mod day2;
+mod day3;
 
-use std::{env, error, fmt, fs, process, result};
+use std::{env, error, fmt, fs, result};
+
+#[derive(Debug)]
+struct UsageError;
 
 type Result<T> = result::Result<T, Box<dyn error::Error>>;
 
@@ -28,9 +32,9 @@ impl<T: fmt::Debug> error::Error for Error<T> {
     }
 }
 
-fn usage() -> ! {
+fn usage() -> Result<()> {
     eprintln!("usage: aoc2019 <day> [<input>]");
-    process::exit(1);
+    Err(Error::boxed(UsageError {}))
 }
 
 fn main() -> Result<()> {
@@ -41,11 +45,11 @@ fn main() -> Result<()> {
                 d
             } else {
                 eprintln!("Could not parse day: '{}'", d);
-                usage();
+                return usage();
             }
         } else {
             eprintln!("Not enough arguments");
-            usage();
+            return usage();
         };
 
         let i = args.next().unwrap_or_else(|| format!("input/day{}", d));
@@ -53,7 +57,7 @@ fn main() -> Result<()> {
             i
         } else {
             eprintln!("No such file: '{}'", &i);
-            usage();
+            return usage();
         };
 
         (d, i)
@@ -67,6 +71,10 @@ fn main() -> Result<()> {
         2 => {
             println!("Part 1: {}", day2::part1(input.trim())?);
             println!("Part 2: {}", day2::part2(input.trim())?);
+        }
+        3 => {
+            println!("Part 1: {}", day3::part1(input.trim())?);
+            println!("Part 2: {}", day3::part2(input.trim())?);
         }
         _ => unimplemented!(),
     }
