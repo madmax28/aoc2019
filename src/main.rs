@@ -2,6 +2,7 @@ mod day1;
 mod day2;
 mod day3;
 mod day4;
+mod day5;
 
 use std::{env, error, fmt, fs, result};
 
@@ -31,6 +32,20 @@ impl<T: fmt::Debug> error::Error for Error<T> {
     fn cause(&self) -> Option<&dyn error::Error> {
         Some(self)
     }
+}
+
+fn time<F: Fn(A) -> B, A, B>(f: F, a: A) -> B {
+    let now = std::time::Instant::now();
+    let res = f(a);
+    let d = now.elapsed();
+    println!(
+        "> {}.{:03} {:03} {:03} seconds",
+        d.as_secs(),
+        d.subsec_nanos() / 1_000_000,
+        d.subsec_nanos() % 1_000_000 / 1_000,
+        d.subsec_nanos() % 1_000,
+    );
+    res
 }
 
 fn usage() -> Result<()> {
@@ -66,20 +81,24 @@ fn main() -> Result<()> {
 
     match day {
         1 => {
-            println!("Part 1: {}", day1::part1(&input)?);
-            println!("Part 2: {}", day1::part2(&input)?);
+            println!("Part 1: {}", time(day1::part1, input.trim())?);
+            println!("Part 2: {}", time(day1::part2, input.trim())?);
         }
         2 => {
-            println!("Part 1: {}", day2::part1(input.trim())?);
-            println!("Part 2: {}", day2::part2(input.trim())?);
+            println!("Part 1: {}", time(day2::part1, input.trim())?);
+            println!("Part 2: {}", time(day2::part2, input.trim())?);
         }
         3 => {
-            println!("Part 1: {}", day3::part1(input.trim())?);
-            println!("Part 2: {}", day3::part2(input.trim())?);
+            println!("Part 1: {}", time(day3::part1, input.trim())?);
+            println!("Part 2: {}", time(day3::part2, input.trim())?);
         }
         4 => {
             println!("Part 1: {}", day4::part1(input.trim())?);
             println!("Part 2: {}", day4::part2(input.trim())?);
+        }
+        5 => {
+            println!("Part 1: {}", day5::part1(input.trim())?);
+            println!("Part 2: {}", day5::part2(input.trim())?);
         }
         _ => unimplemented!(),
     }
