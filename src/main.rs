@@ -93,12 +93,12 @@ fn main() -> Result<()> {
             println!("Part 2: {}", time(day3::part2, input.trim())?);
         }
         4 => {
-            println!("Part 1: {}", day4::part1(input.trim())?);
-            println!("Part 2: {}", day4::part2(input.trim())?);
+            println!("Part 1: {}", time(day4::part1, input.trim())?);
+            println!("Part 2: {}", time(day4::part2, input.trim())?);
         }
         5 => {
-            println!("Part 1: {}", day5::part1(input.trim())?);
-            println!("Part 2: {}", day5::part2(input.trim())?);
+            println!("Part 1: {}", time(day5::part1, input.trim())?);
+            println!("Part 2: {}", time(day5::part2, input.trim())?);
         }
         _ => unimplemented!(),
     }
