@@ -3,6 +3,7 @@ mod day2;
 mod day3;
 mod day4;
 mod day5;
+mod day6;
 
 use std::{env, error, fmt, fs, result};
 
@@ -41,8 +42,8 @@ fn time<F: Fn(A) -> B, A, B>(f: F, a: A) -> B {
     println!(
         "> {}.{:03} {:03} {:03} seconds",
         d.as_secs(),
-        d.subsec_nanos() / 1_000_000,
-        d.subsec_nanos() % 1_000_000 / 1_000,
+        d.subsec_millis(),
+        d.subsec_micros() % 1_000,
         d.subsec_nanos() % 1_000,
     );
     res
@@ -83,23 +84,27 @@ fn main() -> Result<()> {
         1 => {
             println!("Part 1: {}", time(day1::part1, input.trim())?);
             println!("Part 2: {}", time(day1::part2, input.trim())?);
-        }
+        },
         2 => {
             println!("Part 1: {}", time(day2::part1, input.trim())?);
             println!("Part 2: {}", time(day2::part2, input.trim())?);
-        }
+        },
         3 => {
             println!("Part 1: {}", time(day3::part1, input.trim())?);
             println!("Part 2: {}", time(day3::part2, input.trim())?);
-        }
+        },
         4 => {
             println!("Part 1: {}", time(day4::part1, input.trim())?);
             println!("Part 2: {}", time(day4::part2, input.trim())?);
-        }
+        },
         5 => {
             println!("Part 1: {}", time(day5::part1, input.trim())?);
             println!("Part 2: {}", time(day5::part2, input.trim())?);
-        }
+        },
+        6 => {
+            println!("Part 1: {}", time(day6::part1, input.trim())?);
+            println!("Part 2: {}", time(day6::part2, input.trim())?);
+        },
         _ => unimplemented!(),
     }
 
