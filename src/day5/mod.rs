@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::convert::{TryFrom, TryInto};
 
 #[derive(Debug)]
@@ -66,14 +67,28 @@ impl TryFrom<i32> for Insn {
     }
 }
 
-struct Iss {
+#[derive(Clone)]
+pub struct Iss {
     mem: Vec<i32>,
     pc: usize,
+    input: VecDeque<i32>,
 }
 
 impl Iss {
-    fn new(mem: Vec<i32>) -> Self {
-        Iss { mem, pc: 0 }
+    pub fn new(mem: Vec<i32>) -> Self {
+        Iss {
+            mem,
+            pc: 0,
+            input: VecDeque::<i32>::new(),
+        }
+    }
+
+    pub fn with_input(mem: Vec<i32>, input: Vec<i32>) -> Self {
+        Iss {
+            mem,
+            pc: 0,
+            input: input.into(),
+        }
     }
 
     fn access(&mut self, addr: usize) -> crate::Result<&mut i32> {
@@ -93,10 +108,11 @@ impl Iss {
         }
     }
 
-    fn run(&mut self, input: &[i32]) -> crate::Result<Vec<i32>> {
-        let mut output = Vec::new();
-        let mut input_count = 0;
+    pub fn feed_input(&mut self, i: i32) {
+        self.input.push_back(i);
+    }
 
+    pub fn run_till_output(&mut self) -> crate::Result<Option<i32>> {
         loop {
             match Insn::try_from(*self.access(self.pc)?)? {
                 Insn::Add(m) => {
@@ -109,15 +125,15 @@ impl Iss {
                 }
                 Insn::In(m) => {
                     *self.arg(&m, 1)? =
-                        *input.get(input_count).ok_or_else(|| {
+                        self.input.pop_front().ok_or_else(|| {
                             crate::Error::boxed(Error::NotEnoughInput)
                         })?;
-                    input_count += 1;
                     self.pc += 2;
                 }
                 Insn::Out(m) => {
-                    output.push(*self.arg(&m, 1)?);
+                    let o = *self.arg(&m, 1)?;
                     self.pc += 2;
+                    return Ok(Some(o));
                 }
                 Insn::Jit(m) => {
                     if *self.arg(&m, 1)? != 0 {
@@ -151,10 +167,16 @@ impl Iss {
                         };
                     self.pc += 4;
                 }
-                Insn::Halt => break,
+                Insn::Halt => return Ok(None),
             }
         }
+    }
 
+    pub fn run(&mut self) -> crate::Result<Vec<i32>> {
+        let mut output = Vec::new();
+        while let Some(o) = self.run_till_output()? {
+            output.push(o);
+        }
         Ok(output)
     }
 }
@@ -164,10 +186,10 @@ pub fn part1(input: &str) -> crate::Result<i32> {
         .split(',')
         .map(|s| s.parse())
         .collect::<Result<_, _>>()?;
-    let mut iss = Iss::new(mem);
+    let mut iss = Iss::with_input(mem, vec![1]);
 
     Ok(*iss
-        .run(&[1])?
+        .run()?
         .last()
         .ok_or_else(|| crate::Error::boxed(Error::OutputNotProduced))?)
 }
@@ -177,10 +199,10 @@ pub fn part2(input: &str) -> crate::Result<i32> {
         .split(',')
         .map(|s| s.parse())
         .collect::<Result<_, _>>()?;
-    let mut iss = Iss::new(mem);
+    let mut iss = Iss::with_input(mem, vec![5]);
 
     Ok(*iss
-        .run(&[5])?
+        .run()?
         .last()
         .ok_or_else(|| crate::Error::boxed(Error::OutputNotProduced))?)
 }
