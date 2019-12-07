@@ -75,14 +75,6 @@ pub struct Iss {
 }
 
 impl Iss {
-    pub fn new(mem: Vec<i32>) -> Self {
-        Iss {
-            mem,
-            pc: 0,
-            input: VecDeque::<i32>::new(),
-        }
-    }
-
     pub fn with_input(mem: Vec<i32>, input: Vec<i32>) -> Self {
         Iss {
             mem,

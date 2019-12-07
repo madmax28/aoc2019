@@ -28,7 +28,6 @@ pub fn part1(input: &str) -> crate::Result<i32> {
         .split(',')
         .map(|s| s.parse())
         .collect::<Result<_, _>>()?;
-    let iss = crate::day5::Iss::new(mem.clone());
 
     let perms = {
         let mut rem = (0..=4).collect();
@@ -39,15 +38,13 @@ pub fn part1(input: &str) -> crate::Result<i32> {
 
     let mut signal_levels = Vec::new();
     for p in perms {
-        let mut cores: Vec<Iss> = p
+        let mut v = 0;
+        for mut core in p
             .into_iter()
             .map(|phase| Iss::with_input(mem.clone(), vec![phase]))
-            .collect();
-
-        let mut v = 0;
-        for c in 0..5 {
-            cores[c].feed_input(v);
-            v = *cores[c]
+        {
+            core.feed_input(v);
+            v = *core
                 .run()?
                 .last()
                 .ok_or_else(|| crate::Error::boxed(Error::OutputNotProduced))?;
