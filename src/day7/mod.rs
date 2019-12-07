@@ -29,12 +29,8 @@ pub fn part1(input: &str) -> crate::Result<i32> {
         .map(|s| s.parse())
         .collect::<Result<_, _>>()?;
 
-    let perms = {
-        let mut rem = (0..=4).collect();
-        let mut res = Vec::new();
-        permute(&mut Vec::new(), &mut rem, &mut res);
-        res
-    };
+    let mut perms = Vec::new();
+    permute(&mut Vec::new(), &mut (0..=4).collect(), &mut perms);
 
     let mut signal_levels = Vec::new();
     for p in perms {
@@ -61,12 +57,8 @@ pub fn part2(input: &str) -> crate::Result<i32> {
         .map(|s| s.parse())
         .collect::<Result<_, _>>()?;
 
-    let perms = {
-        let mut rem = (5..=9).collect();
-        let mut res = Vec::new();
-        permute(&mut Vec::new(), &mut rem, &mut res);
-        res
-    };
+    let mut perms = Vec::new();
+    permute(&mut Vec::new(), &mut (5..=9).collect(), &mut perms);
 
     let mut signal_levels = Vec::new();
     for p in perms {
