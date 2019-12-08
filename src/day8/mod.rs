@@ -6,21 +6,21 @@ enum Error {
 const SIZE: (usize, usize) = (25, 6);
 
 fn gen_layers(input: &str) -> crate::Result<Vec<Vec<u32>>> {
-    let mut layers = Vec::new();
-    let mut cur: Vec<u32> = Vec::new();
-    for c in input.chars() {
-        cur.push(
+    let mut layers: Vec<Vec<u32>> = Vec::new();
+    let mut chars = input.chars().peekable();
+    while chars.peek().is_some() {
+        layers.push(chars.by_ref().take(SIZE.0 * SIZE.1).map(|c| {
             c.to_digit(10)
-                .ok_or_else(|| crate::Error::boxed(Error::InvalidInput))?,
-        );
-
-        if cur.len() == SIZE.0 * SIZE.1 {
-            layers.push(cur);
-            cur = Vec::new();
-        }
+                .ok_or_else(|| crate::Error::boxed(Error::InvalidInput))
+        }).collect::<Result<_, _>>()?);
     }
 
-    Ok(layers)
+    // Check that all layers have the proper size
+    if layers.iter().any(|l| l.len() != SIZE.0 * SIZE.1) {
+        Err(crate::Error::boxed(Error::InvalidInput))
+    } else {
+        Ok(layers)
+    }
 }
 
 pub fn part1(input: &str) -> crate::Result<usize> {
