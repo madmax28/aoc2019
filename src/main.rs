@@ -1,12 +1,12 @@
-mod day1;
-mod day2;
-mod day3;
-mod day4;
-mod day5;
-mod day6;
-mod day7;
-mod day8;
-mod day9;
+mod day01;
+mod day02;
+mod day03;
+mod day04;
+mod day05;
+mod day06;
+mod day07;
+mod day08;
+mod day09;
 mod day10;
 
 use std::{env, error, fmt, fs, result};
@@ -73,7 +73,7 @@ fn main() -> Result<()> {
             return usage();
         };
 
-        let i = args.next().unwrap_or_else(|| format!("input/day{}", d));
+        let i = args.next().unwrap_or_else(|| format!("input/day{:02}", d));
         let i = if let Ok(i) = fs::read_to_string(&i) {
             i
         } else {
@@ -86,40 +86,40 @@ fn main() -> Result<()> {
 
     match day {
         1 => {
-            println!("Part 1: {}", time(day1::part1, input.trim())?);
-            println!("Part 2: {}", time(day1::part2, input.trim())?);
+            println!("Part 1: {}", time(day01::part1, input.trim())?);
+            println!("Part 2: {}", time(day01::part2, input.trim())?);
         },
         2 => {
-            println!("Part 1: {}", time(day2::part1, input.trim())?);
-            println!("Part 2: {}", time(day2::part2, input.trim())?);
+            println!("Part 1: {}", time(day02::part1, input.trim())?);
+            println!("Part 2: {}", time(day02::part2, input.trim())?);
         },
         3 => {
-            println!("Part 1: {}", time(day3::part1, input.trim())?);
-            println!("Part 2: {}", time(day3::part2, input.trim())?);
+            println!("Part 1: {}", time(day03::part1, input.trim())?);
+            println!("Part 2: {}", time(day03::part2, input.trim())?);
         },
         4 => {
-            println!("Part 1: {}", time(day4::part1, input.trim())?);
-            println!("Part 2: {}", time(day4::part2, input.trim())?);
+            println!("Part 1: {}", time(day04::part1, input.trim())?);
+            println!("Part 2: {}", time(day04::part2, input.trim())?);
         },
         5 => {
-            println!("Part 1: {}", time(day5::part1, input.trim())?);
-            println!("Part 2: {}", time(day5::part2, input.trim())?);
+            println!("Part 1: {}", time(day05::part1, input.trim())?);
+            println!("Part 2: {}", time(day05::part2, input.trim())?);
         },
         6 => {
-            println!("Part 1: {}", time(day6::part1, input.trim())?);
-            println!("Part 2: {}", time(day6::part2, input.trim())?);
+            println!("Part 1: {}", time(day06::part1, input.trim())?);
+            println!("Part 2: {}", time(day06::part2, input.trim())?);
         },
         7 => {
-            println!("Part 1: {}", time(day7::part1, input.trim())?);
-            println!("Part 2: {}", time(day7::part2, input.trim())?);
+            println!("Part 1: {}", time(day07::part1, input.trim())?);
+            println!("Part 2: {}", time(day07::part2, input.trim())?);
         },
         8 => {
-            println!("Part 1: {}", time(day8::part1, input.trim())?);
-            println!("Part 2: {}", time(day8::part2, input.trim())?);
+            println!("Part 1: {}", time(day08::part1, input.trim())?);
+            println!("Part 2: {}", time(day08::part2, input.trim())?);
         },
         9 => {
-            println!("Part 1: {}", time(day9::part1, input.trim())?);
-            println!("Part 2: {}", time(day9::part2, input.trim())?);
+            println!("Part 1: {}", time(day09::part1, input.trim())?);
+            println!("Part 2: {}", time(day09::part2, input.trim())?);
         },
         10 => {
             println!("Part 1: {}", time(day10::part1, input.trim())?);

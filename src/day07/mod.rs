@@ -1,4 +1,4 @@
-use crate::day5::Iss;
+use crate::day05::Iss;
 
 use std::collections::VecDeque;
 
