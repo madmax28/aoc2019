@@ -8,7 +8,7 @@ enum Error {
     NotEnoughInput,
 }
 
-type Value = i64;
+pub type Value = i64;
 
 #[derive(Debug, Clone, Copy)]
 enum Mode {
@@ -82,6 +82,16 @@ pub struct Iss {
 }
 
 impl Iss {
+    pub fn new(mem: Vec<Value>) -> Self {
+        Iss {
+            mem,
+            mem0: HashMap::new(),
+            pc: 0,
+            rb: 0,
+            input: VecDeque::new(),
+        }
+    }
+
     pub fn with_input(mem: Vec<Value>, input: Vec<Value>) -> Self {
         Iss {
             mem,
@@ -112,6 +122,10 @@ impl Iss {
                 Ok(self.access((val + self.rb).try_into()?))
             },
         }
+    }
+
+    pub fn feed_input(&mut self, i: i64) {
+        self.input.push_back(i);
     }
 
     pub fn run_till_output(&mut self) -> crate::Result<Option<Value>> {
