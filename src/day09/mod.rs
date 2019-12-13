@@ -102,7 +102,7 @@ impl Iss {
         }
     }
 
-    fn access(&mut self, addr: usize) -> &mut Value {
+    pub fn access(&mut self, addr: usize) -> &mut Value {
         if let Some(v) = self.mem.get_mut(addr) {
             v
         } else {

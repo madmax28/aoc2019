@@ -10,6 +10,7 @@ mod day09;
 mod day10;
 mod day11;
 mod day12;
+mod day13;
 
 use std::{env, error, fmt, fs, result};
 
@@ -134,6 +135,10 @@ fn main() -> Result<()> {
         12 => {
             println!("Part 1: {}", time(day12::part1, input.trim())?);
             println!("Part 2: {}", time(day12::part2, input.trim())?);
+        },
+        13 => {
+            println!("Part 1: {}", time(day13::part1, input.trim())?);
+            println!("Part 2: {}", time(day13::part2, input.trim())?);
         },
         _ => unimplemented!(),
     }
