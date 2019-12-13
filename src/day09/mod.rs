@@ -2,10 +2,9 @@ use std::collections::{HashMap, VecDeque};
 use std::convert::{TryFrom, TryInto};
 
 #[derive(Debug)]
-enum Error {
+pub enum Error {
     IllegalInstruction,
     OutputNotProduced,
-    NotEnoughInput,
 }
 
 pub type Value = i64;
@@ -72,6 +71,13 @@ impl TryFrom<Value> for Insn {
     }
 }
 
+#[derive(Debug)]
+pub enum StopReason {
+    Output(Value),
+    OutOfInput,
+    Halted,
+}
+
 #[derive(Clone)]
 pub struct Iss {
     mem: Vec<Value>,
@@ -116,11 +122,11 @@ impl Iss {
             Mode::Position => {
                 let val: usize = (*self.access(self.pc + n)).try_into()?;
                 Ok(self.access(val))
-            },
+            }
             Mode::Relative => {
                 let val: i64 = *self.access(self.pc + n);
                 Ok(self.access((val + self.rb).try_into()?))
-            },
+            }
         }
     }
 
@@ -128,7 +134,7 @@ impl Iss {
         self.input.push_back(i);
     }
 
-    pub fn run_till_output(&mut self) -> crate::Result<Option<Value>> {
+    pub fn run(&mut self) -> crate::Result<StopReason> {
         loop {
             match Insn::try_from(*self.access(self.pc))? {
                 Insn::Add(m) => {
@@ -140,16 +146,18 @@ impl Iss {
                     self.pc += 4;
                 }
                 Insn::In(m) => {
-                    *self.arg(&m, 1)? =
-                        self.input.pop_front().ok_or_else(|| {
-                            crate::Error::boxed(Error::NotEnoughInput)
-                        })?;
+                    *self.arg(&m, 1)? = if let Some(i) = self.input.pop_front()
+                    {
+                        i
+                    } else {
+                        return Ok(StopReason::OutOfInput);
+                    };
                     self.pc += 2;
                 }
                 Insn::Out(m) => {
                     let o = *self.arg(&m, 1)?;
                     self.pc += 2;
-                    return Ok(Some(o));
+                    return Ok(StopReason::Output(o));
                 }
                 Insn::Jit(m) => {
                     if *self.arg(&m, 1)? != 0 {
@@ -187,14 +195,14 @@ impl Iss {
                     self.rb += *self.arg(&m, 1)?;
                     self.pc += 2;
                 }
-                Insn::Halt => return Ok(None),
+                Insn::Halt => return Ok(StopReason::Halted),
             }
         }
     }
 
-    pub fn run(&mut self) -> crate::Result<Vec<Value>> {
+    fn run_continuous(&mut self) -> crate::Result<Vec<Value>> {
         let mut output = Vec::new();
-        while let Some(o) = self.run_till_output()? {
+        while let StopReason::Output(o) = self.run()? {
             output.push(o);
         }
         Ok(output)
@@ -209,7 +217,7 @@ pub fn part1(input: &str) -> crate::Result<Value> {
     let mut iss = Iss::with_input(mem, vec![1]);
 
     Ok(*iss
-        .run()?
+        .run_continuous()?
         .last()
         .ok_or_else(|| crate::Error::boxed(Error::OutputNotProduced))?)
 }
@@ -222,7 +230,7 @@ pub fn part2(input: &str) -> crate::Result<Value> {
     let mut iss = Iss::with_input(mem, vec![2]);
 
     Ok(*iss
-        .run()?
+        .run_continuous()?
         .last()
         .ok_or_else(|| crate::Error::boxed(Error::OutputNotProduced))?)
 }

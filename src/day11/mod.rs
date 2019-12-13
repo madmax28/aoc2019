@@ -1,4 +1,4 @@
-use crate::day09::{Iss, Value};
+use crate::day09::{Iss, StopReason, Value};
 
 use std::cmp::{max, min};
 use std::collections::HashMap;
@@ -86,8 +86,8 @@ fn run(input: &str, grid: &mut Grid) -> crate::Result<()> {
         let c = grid.entry(p).or_insert(Color::Black);
         iss.feed_input((*c).into());
 
-        if let (Some(o1), Some(o2)) =
-            (iss.run_till_output()?, iss.run_till_output()?)
+        if let (StopReason::Output(o1), StopReason::Output(o2)) =
+            (iss.run()?, iss.run()?)
         {
             *c = o1.try_into()?;
             d = d.turn(o2)?;
@@ -111,16 +111,14 @@ pub fn part2(input: &str) -> crate::Result<String> {
     g.insert((0, 0), Color::White);
     run(input, &mut g)?;
 
-    let (xmin, xmax, ymin, ymax) = g.iter().fold(
-        (0, 0, 0, 0),
-        |mut acc, (&(x, y), _)| {
+    let (xmin, xmax, ymin, ymax) =
+        g.iter().fold((0, 0, 0, 0), |mut acc, (&(x, y), _)| {
             acc.0 = min(acc.0, x);
             acc.1 = max(acc.1, x);
             acc.2 = min(acc.2, y);
             acc.3 = max(acc.3, y);
             acc
-        },
-    );
+        });
 
     let mut id = String::new();
     id.push('\n');

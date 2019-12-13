@@ -12,17 +12,18 @@ enum Error {
 type Pos = (Value, Value);
 type Grid = HashMap<Pos, Value>;
 
-fn run_till_output(
-    iss: &mut Iss,
-) -> crate::Result<Option<(Value, Value, Value)>> {
-    match (
-        iss.run_till_output(),
-        iss.run_till_output(),
-        iss.run_till_output(),
-    ) {
-        (Ok(Some(x)), Ok(Some(y)), Ok(Some(v))) => Ok(Some((x, y, v))),
-        (_, _, Ok(None)) => Ok(None),
-        (_, _, Err(e)) => Err(e),
+enum StopReason {
+    Output(Value, Value, Value),
+    OutOfInput,
+    Halted,
+}
+
+fn run(iss: &mut Iss) -> crate::Result<StopReason> {
+    use crate::day09::StopReason::*;
+    match (iss.run()?, iss.run()?, iss.run()?) {
+        (Output(x), Output(y), Output(v)) => Ok(StopReason::Output(x, y, v)),
+        (Halted, _, _) => Ok(StopReason::Halted),
+        (OutOfInput, _, _) => Ok(StopReason::OutOfInput),
         _ => Err(crate::Error::boxed(Error::UnexpectedOutput)),
     }
 }
@@ -35,7 +36,7 @@ pub fn part1(input: &str) -> crate::Result<usize> {
     let mut iss = Iss::new(mem);
 
     let mut g = Grid::new();
-    while let Ok(Some((x, y, v))) = run_till_output(&mut iss) {
+    while let StopReason::Output(x, y, v) = run(&mut iss)? {
         g.insert((x, y), v);
     }
 
@@ -54,17 +55,12 @@ pub fn part2(input: &str) -> crate::Result<i64> {
     let mut grid = Grid::new();
     let mut score = 0;
     loop {
-        match run_till_output(&mut iss) {
-            Ok(Some((-1, 0, s))) => score = s,
-            Ok(Some((x, y, v))) => {
+        match run(&mut iss)? {
+            StopReason::Output(-1, 0, s) => score = s,
+            StopReason::Output(x, y, v) => {
                 grid.insert((x, y), v);
             }
-            Ok(None) => break,
-            Err(e) => {
-                if e.is::<crate::Error<Error>>() {
-                    return Err(e);
-                }
-
+            StopReason::OutOfInput => {
                 let paddle = grid
                     .iter()
                     .find(|(_, &v)| v == 3)
@@ -86,6 +82,7 @@ pub fn part2(input: &str) -> crate::Result<i64> {
                     0
                 });
             }
+            StopReason::Halted => break,
         }
     }
 
