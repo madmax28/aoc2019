@@ -6,7 +6,13 @@ enum Error {
 }
 
 type ChemId = i32;
-type Component = (ChemId, i64);
+
+#[derive(PartialEq, Eq, Hash)]
+struct Component {
+    id: ChemId,
+    cnt: i64,
+}
+
 type Reactions = HashMap<Component, Vec<Component>>;
 type IdMap = HashMap<String, ChemId>;
 
@@ -41,13 +47,13 @@ fn parse(input: &str) -> crate::Result<(Reactions, IdMap)> {
         let mut cs = l.chars().peekable();
         let mut chems = Vec::new();
         while cs.peek().is_some() {
-            let (c, n) = scan_for(&mut cs)?;
-            let id = ids.entry(c).or_insert_with(|| {
+            let (name, cnt) = scan_for(&mut cs)?;
+            let id = *ids.entry(name).or_insert_with(|| {
                 idc += 1;
                 idc - 1
             });
 
-            chems.push((*id, n));
+            chems.push(Component { id, cnt });
         }
 
         let product = chems
@@ -64,52 +70,44 @@ fn parse(input: &str) -> crate::Result<(Reactions, IdMap)> {
 }
 
 fn react(
-    fuel_need: i64,
+    id: ChemId,
+    cnt: i64,
     reactions: &Reactions,
-    fuel_id: ChemId,
+    spares: &mut HashMap<ChemId, i64>,
     ore_id: ChemId,
 ) -> crate::Result<i64> {
-    let mut need = HashMap::new();
-    need.insert(fuel_id, fuel_need);
-    let mut spare = HashMap::new();
+    let (product, reactants) = reactions
+        .iter()
+        .find(|(c, _)| c.id == id)
+        .ok_or_else(|| crate::Error::boxed(Error::InvalidInput))?;
+    let num_reactions = (cnt + product.cnt - 1) / product.cnt;
+    let cnt_remaining = (product.cnt - cnt).rem_euclid(product.cnt);
 
-    while !(need.len() == 1 && need.get(&ore_id).is_some()) {
-        let mut need_new = HashMap::new();
-        need_new.insert(ore_id, need.remove(&ore_id).unwrap_or(0));
+    spares.insert(id, cnt_remaining);
 
-        for (chem_need, cnt_need) in need {
-            let r = reactions
-                .iter()
-                .find(|((cc, _), _)| *cc == chem_need)
-                .ok_or_else(|| crate::Error::boxed(Error::InvalidInput))?;
+    let mut ore_cnt = 0;
+    for reactant in reactants {
+        let mut cnt_needed = reactant.cnt * num_reactions;
 
-            {
-                let mut times = cnt_need / (r.0).1;
-                let mut rem = cnt_need % (r.0).1;
-                if rem != 0 {
-                    rem = (r.0).1 - rem;
-                    times += 1;
-                }
+        if reactant.id == ore_id {
+            ore_cnt += cnt_needed;
+            continue;
+        }
 
-                for (chem_gen, cnt_gen) in r.1 {
-                    *need_new.entry(*chem_gen).or_insert(0) += times * cnt_gen;
-                }
-                *spare.entry(chem_need).or_insert(0) += rem;
-            }
+        if let Some(cnt_spare) = spares.get_mut(&reactant.id) {
+            let spares_used = cnt_needed.min(*cnt_spare);
+            *cnt_spare -= spares_used;
+            cnt_needed -= spares_used;
 
-            for (chem_spare, cnt_spare) in &mut spare {
-                let cnt_need = need_new.entry(*chem_spare).or_insert(0);
-                let d = *cnt_need - *cnt_spare;
-                *cnt_spare = (-d).max(0);
-                *cnt_need = d.max(0);
+            if cnt_needed == 0 {
+                continue;
             }
         }
 
-        need_new.retain(|_, &mut n| n != 0);
-        need = need_new;
+        ore_cnt += react(reactant.id, cnt_needed, reactions, spares, ore_id)?;
     }
 
-    Ok(*need.get(&ore_id).unwrap())
+    Ok(ore_cnt)
 }
 
 pub fn part1(input: &str) -> crate::Result<i64> {
@@ -121,7 +119,7 @@ pub fn part1(input: &str) -> crate::Result<i64> {
         .get("ORE")
         .ok_or_else(|| crate::Error::boxed(Error::InvalidInput))?;
 
-    Ok(react(1, &reactions, fuel_id, ore_id)?)
+    Ok(react(fuel_id, 1, &reactions, &mut HashMap::new(), ore_id)?)
 }
 
 pub fn part2(input: &str) -> crate::Result<i64> {
@@ -138,7 +136,8 @@ pub fn part2(input: &str) -> crate::Result<i64> {
     let mut lower_bound = 0;
     Ok(loop {
         let cand = (upper_bound + lower_bound) / 2;
-        let ore_needed = react(cand, &reactions, fuel_id, ore_id)?;
+        let ore_needed =
+            react(fuel_id, cand, &reactions, &mut HashMap::new(), ore_id)?;
 
         if ore_needed > GOAL {
             upper_bound = cand;
