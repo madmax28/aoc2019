@@ -23,7 +23,7 @@ fn step(p: Pos, d: Value) -> crate::Result<Pos> {
 
 fn find_oxygen_system(iss: Iss) -> crate::Result<(Pos, Value, Iss)> {
     let mut candidates = VecDeque::new();
-    candidates.push_back(((0, 0), 0, iss.clone()));
+    candidates.push_back(((0, 0), 0, iss));
     let mut visited = HashSet::new();
     visited.insert((0, 0));
 
@@ -41,12 +41,11 @@ fn find_oxygen_system(iss: Iss) -> crate::Result<(Pos, Value, Iss)> {
                 StopReason::Output(1) => {
                     let pos = step(pos, dir)?;
 
-                    if visited.contains(&pos) {
+                    if !visited.insert(pos) {
                         continue;
                     }
-                    visited.insert(pos);
 
-                    candidates.push_back((pos, dist + 1, iss.clone()));
+                    candidates.push_back((pos, dist + 1, iss));
                 }
                 StopReason::Output(2) => break 'outer (step(pos, dir)?, dist + 1, iss),
                 _ => {
@@ -59,7 +58,7 @@ fn find_oxygen_system(iss: Iss) -> crate::Result<(Pos, Value, Iss)> {
 
 fn fill_oxygen(iss: Iss) -> crate::Result<(Pos, Value, Iss)> {
     let mut candidates = VecDeque::new();
-    candidates.push_back(((0, 0), 0, iss.clone()));
+    candidates.push_back(((0, 0), 0, iss));
     let mut visited = HashSet::new();
     visited.insert((0, 0));
 
@@ -77,12 +76,11 @@ fn fill_oxygen(iss: Iss) -> crate::Result<(Pos, Value, Iss)> {
                 StopReason::Output(1) | StopReason::Output(2) => {
                     let pos = step(pos, dir)?;
 
-                    if visited.contains(&pos) {
+                    if !visited.insert(pos) {
                         continue;
                     }
-                    visited.insert(pos);
 
-                    candidates.push_back((pos, dist + 1, iss.clone()));
+                    candidates.push_back((pos, dist + 1, iss));
                 }
                 _ => {
                     return Err(crate::Error::boxed(Error::UnexpectedIssResult))
