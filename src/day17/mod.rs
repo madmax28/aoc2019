@@ -97,17 +97,24 @@ fn matches(path: &[Segment], cand: &[Segment]) -> bool {
     path[..cand.len()] == cand[..cand.len()]
 }
 
+const MAX_LEN: usize = 20;
+const MAX_RTNS: usize = 3;
+
 fn solve(
     path: &[Segment],
     segments: &[Path],
     main: &mut Main,
     s: usize,
 ) -> bool {
+    if s >= path.len() {
+        return true;
+    }
+
     for (idx, seg) in segments.iter().enumerate() {
         if matches(&path[s..], seg) {
             main.push(idx);
-            if s + seg.len() >= path.len()
-                || solve(path, segments, main, s + seg.len())
+            if main.to_ascii().len() <= MAX_LEN
+                && solve(path, segments, main, s + seg.len())
             {
                 return true;
             }
@@ -120,23 +127,16 @@ fn solve(
 
 fn find_routines(
     path: &[Segment],
-    mut off: usize,
+    start: usize,
     main: &mut Main,
     routines: &mut Vec<Path>,
 ) -> bool {
-    const MAX_LEN: usize = 20;
-    const MAX_RTNS: usize = 3;
-
     if routines.len() == MAX_RTNS {
         return false;
     }
 
-    while let Some(seg) = routines.iter().find(|p| matches(&path[off..], p)) {
-        off += seg.len();
-    }
-
-    for len in (1..=path.len() - off).rev() {
-        let cand = path[off..off + len].to_vec();
+    for len in (1..=path.len() - start).rev() {
+        let cand = path[start..start + len].to_vec();
         if cand.to_ascii().len() > MAX_LEN {
             continue;
         }
@@ -144,14 +144,18 @@ fn find_routines(
         let cand_len = cand.len();
         routines.push(cand);
         if solve(path, routines, main, 0)
-            || find_routines(path, off + cand_len, main, routines)
+            || find_routines(path, start + cand_len, main, routines)
         {
             return true;
         }
         routines.pop();
     }
 
-    false
+    if start < path.len() {
+        find_routines(path, start + 1, main, routines)
+    } else {
+        false
+    }
 }
 
 #[derive(Clone)]
