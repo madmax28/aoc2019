@@ -130,6 +130,13 @@ impl Iss {
         }
     }
 
+    pub fn feed_str(&mut self, s: &str) -> crate::Result<()> {
+        for c in s.chars() {
+            self.input.push_back(u32::from(c).try_into()?);
+        }
+        Ok(())
+    }
+
     pub fn feed_input(&mut self, i: i64) {
         self.input.push_back(i);
     }
