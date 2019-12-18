@@ -10,13 +10,15 @@ enum Error {
 type Pos = (u8, u8);
 type Dist = i32;
 
-fn neighbors(p: Pos) -> Vec<Pos> {
-    vec![
-        (p.0, p.1 - 1),
-        (p.0, p.1 + 1),
-        (p.0 - 1, p.1),
-        (p.0 + 1, p.1),
-    ]
+fn neighbors(ps: &[Pos]) -> Vec<(usize, Pos)> {
+    let mut res = Vec::with_capacity(ps.len() * 4);
+    for (i, p) in ps.iter().enumerate() {
+        res.push((i, (p.0, p.1 - 1)));
+        res.push((i, (p.0, p.1 + 1)));
+        res.push((i, (p.0 - 1, p.1)));
+        res.push((i, (p.0 + 1, p.1)));
+    }
+    res
 }
 
 #[derive(Clone)]
@@ -34,8 +36,12 @@ impl Vault {
             .collect()
     }
 
-    fn entrance(&self) -> Option<Pos> {
-        self.map.iter().find(|(_, &c)| c == '@').map(|(p, _)| *p)
+    fn entrances(&self) -> Vec<Pos> {
+        self.map
+            .iter()
+            .filter(|(_, &c)| c == '@')
+            .map(|(p, _)| *p)
+            .collect()
     }
 
     #[allow(dead_code)]
@@ -72,20 +78,27 @@ impl FromStr for Vault {
     }
 }
 
+type State = VecDeque<(VecDeque<Vec<Pos>>, HashSet<Pos>, HashSet<char>)>;
+
 fn collect_keys_bfs(
     vault: Vault,
     keys: HashSet<Pos>,
-    queue: &mut VecDeque<(VecDeque<Pos>, HashSet<Pos>, HashSet<char>)>,
+    mut queue: State,
 ) -> Option<Dist> {
     let mut dist = 0;
     while !queue.is_empty() {
-        for off in 0..queue.len() {
-            let (mut ps, mut visited, have_keys) = queue.pop_front().unwrap();
+        let initial_queue_len = queue.len();
+        for taken in 1..=queue.len() {
+            let (mut droid_ps, mut visited, have_keys) =
+                queue.pop_front().unwrap();
 
-            for _ in 0..ps.len() {
-                let pos = ps.pop_front().unwrap();
+            for _ in 0..droid_ps.len() {
+                let droid_pos = droid_ps.pop_front().unwrap();
 
-                for n in neighbors(pos) {
+                for (droid_idx, n) in neighbors(&droid_pos) {
+                    let mut droid_n = droid_pos.clone();
+                    droid_n[droid_idx] = n;
+
                     match vault.map.get(&n).unwrap() {
                         '#' => (),
                         c @ 'a'..='z' => {
@@ -95,7 +108,7 @@ fn collect_keys_bfs(
 
                             if have_keys.contains(&c) {
                                 // got key, treat as empty
-                                ps.push_back(n);
+                                droid_ps.push_back(droid_n);
                                 continue;
                             }
 
@@ -107,22 +120,28 @@ fn collect_keys_bfs(
 
                             // memory optimization: avoid duplicate queue
                             // entries with same keys
-                            if queue.len() > off + 1 {
-                                let skip = queue.len() - off - 1;
-                                if let Some((ps, vs, _)) = queue
-                                    .iter_mut()
-                                    .skip(skip)
-                                    .find(|(.., hks)| hks == &have_keys)
-                                {
-                                    ps.push_back(n);
-                                    vs.insert(n);
-                                    continue;
-                                }
+                            if let Some((dps, vs, _)) = queue
+                                .iter_mut()
+                                .skip(initial_queue_len - taken)
+                                .find(|(_, _, hks)| {
+                                    hks == &have_keys
+                                        // technically need these checks but solves anyway
+                                        // && !dps.contains(&droid_n)
+                                        // && !vs.contains(&n)
+                                })
+                            {
+                                vs.extend(droid_n.iter().cloned());
+                                dps.push_back(droid_n);
+                                continue;
                             }
 
                             let mut vs = HashSet::new();
                             vs.insert(n);
-                            queue.push_back((vec![n].into(), vs, have_keys));
+                            queue.push_back((
+                                vec![droid_n].into(),
+                                vs,
+                                have_keys,
+                            ));
                         }
                         c @ 'A'..='Z' => {
                             if !have_keys.contains(&c.to_ascii_lowercase()) {
@@ -134,22 +153,22 @@ fn collect_keys_bfs(
                                 continue;
                             }
 
-                            ps.push_back(n);
+                            droid_ps.push_back(droid_n);
                         }
                         '.' | '@' => {
                             if !visited.insert(n) {
                                 continue;
                             }
 
-                            ps.push_back(n);
+                            droid_ps.push_back(droid_n);
                         }
                         _ => unreachable!(),
                     }
                 }
             }
 
-            if !ps.is_empty() {
-                queue.push_back((ps, visited, have_keys));
+            if !droid_ps.is_empty() {
+                queue.push_back((droid_ps, visited, have_keys));
             }
         }
 
@@ -160,22 +179,55 @@ fn collect_keys_bfs(
 }
 
 fn collect_keys(vault: Vault) -> crate::Result<Option<Dist>> {
-    let entrance = vault
-        .entrance()
-        .ok_or_else(|| crate::Error::boxed(Error::EntraceNotFound))?;
-    let keys = vault.keys();
-    let mut visited = HashSet::new();
-    visited.insert(entrance);
+    let entrances = vault.entrances();
+    if entrances.is_empty() {
+        return Err(crate::Error::boxed(Error::EntraceNotFound));
+    }
+    let keys = vault.keys().into_iter().collect();
 
     Ok(collect_keys_bfs(
         vault,
-        keys.into_iter().collect(),
-        &mut vec![(vec![entrance].into(), visited, HashSet::new())].into(),
+        keys,
+        vec![(
+            vec![entrances.clone()].into(),
+            entrances.into_iter().collect(),
+            HashSet::new(),
+        )]
+        .into(),
     ))
 }
 
 pub fn part1(input: &str) -> crate::Result<Dist> {
     let vault = Vault::from_str(input).unwrap();
+    Ok(collect_keys(vault)?
+        .ok_or_else(|| crate::Error::boxed(Error::PathNotFound))?)
+}
+
+pub fn part2(input: &str) -> crate::Result<Dist> {
+    let mut vault = Vault::from_str(input).unwrap();
+
+    let (x, y) = vault
+        .entrances()
+        .pop()
+        .ok_or_else(|| crate::Error::boxed(Error::EntraceNotFound))?;
+
+    vault.map.insert((x, y), '#');
+    vault.map.insert((x + 1, y), '#');
+    vault.map.insert((x - 1, y), '#');
+    vault.map.insert((x, y + 1), '#');
+    vault.map.insert((x, y - 1), '#');
+
+    let entrances = vec![
+        (x + 1, y - 1),
+        (x + 1, y + 1),
+        (x - 1, y - 1),
+        (x - 1, y + 1),
+    ];
+
+    for e in &entrances {
+        vault.map.insert(*e, '@');
+    }
+
     Ok(collect_keys(vault)?
         .ok_or_else(|| crate::Error::boxed(Error::PathNotFound))?)
 }
@@ -193,7 +245,7 @@ mod tests {
         inp.push_str("#########");
 
         let vault = Vault::from_str(&inp).unwrap();
-        assert_eq!(vault.entrance().unwrap(), (5, 1));
+        assert_eq!(vault.entrances().get(0).unwrap(), &(5, 1));
         assert_eq!(vault.keys().len(), 2);
         assert_eq!(collect_keys(vault).unwrap().unwrap(), 8);
     }
@@ -208,7 +260,7 @@ mod tests {
         inp.push_str("########################");
 
         let vault = Vault::from_str(&inp).unwrap();
-        assert_eq!(vault.entrance().unwrap(), (15, 1));
+        assert_eq!(vault.entrances().get(0).unwrap(), &(15, 1));
         assert_eq!(vault.keys().len(), 6);
         assert_eq!(collect_keys(vault).unwrap().unwrap(), 86);
     }
@@ -223,7 +275,7 @@ mod tests {
         inp.push_str("########################");
 
         let vault = Vault::from_str(&inp).unwrap();
-        assert_eq!(vault.entrance().unwrap(), (6, 3));
+        assert_eq!(vault.entrances().get(0).unwrap(), &(6, 3));
         assert_eq!(vault.keys().len(), 7);
         assert_eq!(collect_keys(vault).unwrap().unwrap(), 132);
     }
@@ -242,7 +294,7 @@ mod tests {
         inp.push_str("#################");
 
         let vault = Vault::from_str(&inp).unwrap();
-        assert_eq!(vault.entrance().unwrap(), (8, 4));
+        assert_eq!(vault.entrances().get(0).unwrap(), &(8, 4));
         assert_eq!(vault.keys().len(), 16);
         assert_eq!(collect_keys(vault).unwrap().unwrap(), 136);
     }
@@ -258,23 +310,71 @@ mod tests {
         inp.push_str("########################");
 
         let vault = Vault::from_str(&inp).unwrap();
-        assert_eq!(vault.entrance().unwrap(), (1, 1));
+        assert_eq!(vault.entrances().get(0).unwrap(), &(1, 1));
         assert_eq!(vault.keys().len(), 9);
         assert_eq!(collect_keys(vault).unwrap().unwrap(), 81);
     }
 
     #[test]
-    fn mine1() {
+    fn p2_ex1() {
         let mut inp = String::new();
-        inp.push_str("#########\n");
-        inp.push_str("#.b...c.#\n");
-        inp.push_str("####@####\n");
-        inp.push_str("#.a...d.#\n");
-        inp.push_str("#########");
+        inp.push_str("#######\n");
+        inp.push_str("#a.#Cd#\n");
+        inp.push_str("##@#@##\n");
+        inp.push_str("#######\n");
+        inp.push_str("##@#@##\n");
+        inp.push_str("#cB#Ab#\n");
+        inp.push_str("#######");
 
         let vault = Vault::from_str(&inp).unwrap();
-        assert_eq!(vault.entrance().unwrap(), (4, 2));
         assert_eq!(vault.keys().len(), 4);
-        assert_eq!(collect_keys(vault).unwrap().unwrap(), 17);
+        assert_eq!(collect_keys(vault).unwrap().unwrap(), 8);
+    }
+
+    #[test]
+    fn p2_ex2() {
+        let mut inp = String::new();
+        inp.push_str("###############\n");
+        inp.push_str("#d.ABC.#.....a#\n");
+        inp.push_str("######@#@######\n");
+        inp.push_str("###############\n");
+        inp.push_str("######@#@######\n");
+        inp.push_str("#b.....#.....c#\n");
+        inp.push_str("###############");
+
+        let vault = Vault::from_str(&inp).unwrap();
+        assert_eq!(collect_keys(vault).unwrap().unwrap(), 24);
+    }
+
+    #[test]
+    fn p2_ex3() {
+        let mut inp = String::new();
+        inp.push_str("#############\n");
+        inp.push_str("#DcBa.#.GhKl#\n");
+        inp.push_str("#.###@#@#I###\n");
+        inp.push_str("#e#d#####j#k#\n");
+        inp.push_str("###C#@#@###J#\n");
+        inp.push_str("#fEbA.#.FgHi#\n");
+        inp.push_str("#############");
+
+        let vault = Vault::from_str(&inp).unwrap();
+        assert_eq!(collect_keys(vault).unwrap().unwrap(), 32);
+    }
+
+    #[test]
+    fn p2_ex4() {
+        let mut inp = String::new();
+        inp.push_str("#############\n");
+        inp.push_str("#g#f.D#..h#l#\n");
+        inp.push_str("#F###e#E###.#\n");
+        inp.push_str("#dCba@#@BcIJ#\n");
+        inp.push_str("#############\n");
+        inp.push_str("#nK.L@#@G...#\n");
+        inp.push_str("#M###N#H###.#\n");
+        inp.push_str("#o#m..#i#jk.#\n");
+        inp.push_str("#############");
+
+        let vault = Vault::from_str(&inp).unwrap();
+        assert_eq!(collect_keys(vault).unwrap().unwrap(), 72);
     }
 }

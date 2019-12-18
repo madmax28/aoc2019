@@ -163,6 +163,7 @@ fn main() -> Result<()> {
         },
         18 => {
             println!("Part 1: {}", time(day18::part1, input.trim())?);
+            println!("Part 2: {}", time(day18::part2, input.trim())?);
         },
         _ => unimplemented!(),
     }
