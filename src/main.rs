@@ -179,14 +179,14 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn day1() {
+    fn day01() {
         let inp = include_str!("../input/day01");
         assert_eq!(crate::day01::part1(inp.trim()).unwrap(), 3479429);
         assert_eq!(crate::day01::part2(inp.trim()).unwrap(), 5216273);
     }
 
     #[test]
-    fn day2() {
+    fn day02() {
         let inp = include_str!("../input/day02");
         assert_eq!(crate::day02::part1(inp.trim()).unwrap(), 3409710);
         assert_eq!(crate::day02::part2(inp.trim()).unwrap(), 7912);

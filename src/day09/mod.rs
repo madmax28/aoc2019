@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::convert::{TryFrom, TryInto};
 
 #[derive(Debug)]
@@ -81,7 +81,6 @@ pub enum StopReason {
 #[derive(Clone)]
 pub struct Iss {
     mem: Vec<Value>,
-    mem0: HashMap<usize, Value>,
     pc: usize,
     rb: Value,
     input: VecDeque<Value>,
@@ -91,7 +90,6 @@ impl Iss {
     pub fn new(mem: Vec<Value>) -> Self {
         Iss {
             mem,
-            mem0: HashMap::new(),
             pc: 0,
             rb: 0,
             input: VecDeque::new(),
@@ -101,7 +99,6 @@ impl Iss {
     pub fn with_input(mem: Vec<Value>, input: Vec<Value>) -> Self {
         Iss {
             mem,
-            mem0: HashMap::new(),
             pc: 0,
             rb: 0,
             input: input.into(),
@@ -109,11 +106,10 @@ impl Iss {
     }
 
     pub fn access(&mut self, addr: usize) -> &mut Value {
-        if let Some(v) = self.mem.get_mut(addr) {
-            v
-        } else {
-            self.mem0.entry(addr).or_insert(0)
+        while addr >= self.mem.len() {
+            self.mem.resize(self.mem.len() * 2, 0);
         }
+        &mut self.mem[addr]
     }
 
     fn arg(&mut self, m: &[Mode], n: usize) -> crate::Result<&mut Value> {
