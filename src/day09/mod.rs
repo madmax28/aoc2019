@@ -1,5 +1,7 @@
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::convert::{TryFrom, TryInto};
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum Error {
@@ -16,10 +18,10 @@ enum Mode {
     Relative,
 }
 
-impl TryFrom<Value> for Mode {
+impl TryFrom<usize> for Mode {
     type Error = Box<crate::Error<Error>>;
 
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(Mode::Position),
             1 => Ok(Mode::Immediate),
@@ -29,7 +31,9 @@ impl TryFrom<Value> for Mode {
     }
 }
 
-#[derive(Debug)]
+const MAX_INSN_VALUE: usize = 33399;
+
+#[derive(Debug, Clone, Copy)]
 enum Insn {
     Add([Mode; 3]),
     Mul([Mode; 3]),
@@ -43,10 +47,10 @@ enum Insn {
     Halt,
 }
 
-impl TryFrom<Value> for Insn {
+impl TryFrom<usize> for Insn {
     type Error = Box<crate::Error<Error>>;
 
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
         let opcode = value % 100;
 
         let (m1, m2, m3) = (
@@ -71,6 +75,36 @@ impl TryFrom<Value> for Insn {
     }
 }
 
+#[derive(Clone)]
+struct Icache {
+    cache: Rc<RefCell<[Option<Insn>; MAX_INSN_VALUE + 1]>>,
+}
+
+impl Icache {
+    fn new() -> Self {
+        Icache {
+            cache: Rc::new(RefCell::new([None; MAX_INSN_VALUE + 1])),
+        }
+    }
+
+    fn fetch_insn(&self, value: Value) -> crate::Result<Insn> {
+        if value < 0 || value as usize > MAX_INSN_VALUE {
+            println!("{}", value);
+            return Err(crate::Error::boxed(Error::IllegalInstruction));
+        }
+        let value = value as usize;
+
+        let mut cache = self.cache.borrow_mut();
+        if let Some(insn) = &cache[value] {
+            Ok(*insn)
+        } else {
+            let insn = Insn::try_from(value)?;
+            cache[value] = Some(insn);
+            Ok(insn)
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum StopReason {
     Output(Value),
@@ -84,6 +118,7 @@ pub struct Iss {
     pc: usize,
     rb: Value,
     input: VecDeque<Value>,
+    icache: Icache,
 }
 
 impl Iss {
@@ -93,6 +128,7 @@ impl Iss {
             pc: 0,
             rb: 0,
             input: VecDeque::new(),
+            icache: Icache::new(),
         }
     }
 
@@ -102,12 +138,13 @@ impl Iss {
             pc: 0,
             rb: 0,
             input: input.into(),
+            icache: Icache::new(),
         }
     }
 
     pub fn access(&mut self, addr: usize) -> &mut Value {
-        while addr >= self.mem.len() {
-            self.mem.resize(self.mem.len() * 2, 0);
+        if addr >= self.mem.len() {
+            self.mem.resize(addr + 1, 0);
         }
         &mut self.mem[addr]
     }
@@ -116,12 +153,12 @@ impl Iss {
         match m[n - 1] {
             Mode::Immediate => Ok(self.access(self.pc + n)),
             Mode::Position => {
-                let val: usize = (*self.access(self.pc + n)).try_into()?;
+                let val = (*self.access(self.pc + n)) as usize;
                 Ok(self.access(val))
             }
             Mode::Relative => {
-                let val: i64 = *self.access(self.pc + n);
-                Ok(self.access((val + self.rb).try_into()?))
+                let val: Value = *self.access(self.pc + n);
+                Ok(self.access((val + self.rb) as usize))
             }
         }
     }
@@ -133,13 +170,14 @@ impl Iss {
         Ok(())
     }
 
-    pub fn feed_input(&mut self, i: i64) {
+    pub fn feed_input(&mut self, i: Value) {
         self.input.push_back(i);
     }
 
     pub fn run(&mut self) -> crate::Result<StopReason> {
         loop {
-            match Insn::try_from(*self.access(self.pc))? {
+            let val = *self.access(self.pc);
+            match self.icache.fetch_insn(val)? {
                 Insn::Add(m) => {
                     *self.arg(&m, 3)? = *self.arg(&m, 1)? + *self.arg(&m, 2)?;
                     self.pc += 4;

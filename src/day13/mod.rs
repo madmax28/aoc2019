@@ -43,7 +43,7 @@ pub fn part1(input: &str) -> crate::Result<usize> {
     Ok(g.values().filter(|&&v| v == 2).count())
 }
 
-pub fn part2(input: &str) -> crate::Result<i64> {
+pub fn part2(input: &str) -> crate::Result<Value> {
     let mem: Vec<Value> = input
         .split(',')
         .map(|s| s.parse())
