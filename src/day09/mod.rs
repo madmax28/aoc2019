@@ -77,24 +77,27 @@ impl TryFrom<usize> for Insn {
 
 #[derive(Clone)]
 struct Icache {
-    cache: Rc<RefCell<[Option<Insn>; MAX_INSN_VALUE + 1]>>,
+    cache: Rc<RefCell<Vec<Option<Insn>>>>,
 }
 
 impl Icache {
     fn new() -> Self {
         Icache {
-            cache: Rc::new(RefCell::new([None; MAX_INSN_VALUE + 1])),
+            cache: Rc::new(RefCell::new(Vec::new())),
         }
     }
 
     fn fetch_insn(&self, value: Value) -> crate::Result<Insn> {
         if value < 0 || value as usize > MAX_INSN_VALUE {
-            println!("{}", value);
             return Err(crate::Error::boxed(Error::IllegalInstruction));
         }
         let value = value as usize;
 
         let mut cache = self.cache.borrow_mut();
+        if value + 1 > cache.len() {
+            cache.resize(value + 1, None);
+        }
+
         if let Some(insn) = &cache[value] {
             Ok(*insn)
         } else {
