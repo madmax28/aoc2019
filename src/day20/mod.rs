@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::Into;
 use std::iter;
 use std::str::FromStr;
@@ -6,13 +6,22 @@ use std::{fmt::Debug, hash::Hash, marker::Sized};
 
 #[derive(Debug)]
 enum Error {
-    EntranceNotFound,
-    ExitNotFound,
     InvalidInput,
     NoPathFound,
 }
 
 type Point = (i32, i32);
+
+fn add(p1: Point, p2: Point) -> Point {
+    (p1.0 + p2.0, p1.1 + p2.1)
+}
+
+type Dist = i32;
+type Sz = (i32, i32);
+
+fn in_bounds(p: Point, sz: Sz) -> bool {
+    p.0 >= 0 && p.1 >= 0 && p.0 < sz.0 && p.1 < sz.1
+}
 
 trait Pos
 where
@@ -75,7 +84,8 @@ impl Pos for PosRec {
 
     fn neighbors(&self, sz: Sz) -> Vec<Self> {
         let d = self.depth;
-        self.pos.neighbors(sz)
+        self.pos
+            .neighbors(sz)
             .iter()
             .map(move |&p| PosRec::new(p, d))
             .collect()
@@ -92,17 +102,19 @@ impl Pos for PosRec {
     }
 }
 
-type Dist = i32;
-type Sz = (i32, i32);
-
-fn is_outer(p: Point, sz: Sz) -> bool {
-    p.0 == 2 || p.0 + 3 == sz.0 || p.1 == 2 || p.1 + 3 == sz.1
-}
-
 #[derive(Debug)]
 struct Portal {
     inner: Point,
     outer: Point,
+}
+
+impl Portal {
+    fn new() -> Self {
+        Portal {
+            inner: (0, 0),
+            outer: (0, 0),
+        }
+    }
 }
 
 struct Maze {
@@ -123,109 +135,82 @@ impl Maze {
             portals: Vec::new(),
         };
 
-        m.entrance = m
-            .ps()
-            .filter(|&p| m.get(p) == '.')
-            .find(|&p| {
-                if let Some(p) =
-                    p.neighbors(m.sz).iter().find(|&p| m.get(*p) == 'A')
-                {
-                    p.neighbors(m.sz).iter().any(|&p| m.get(p) == 'A')
-                } else {
-                    false
-                }
-            })
-            .ok_or_else(|| crate::Error::boxed(Error::EntranceNotFound))?;
+        let patterns = &[
+            ((0, 1), (0, 2)),
+            ((1, 0), (2, 0)),
+            ((0, -2), (0, -1)),
+            ((-2, 0), (-1, 0)),
+        ];
 
-        m.exit = m
-            .ps()
-            .filter(|&p| m.get(p) == '.')
-            .find(|&p| {
-                if let Some(p) =
-                    p.neighbors(m.sz).iter().find(|&p| m.get(*p) == 'Z')
-                {
-                    p.neighbors(m.sz).iter().any(|&p| m.get(p) == 'Z')
-                } else {
-                    false
-                }
-            })
-            .ok_or_else(|| crate::Error::boxed(Error::ExitNotFound))?;
-
-        let mut portals = Vec::new();
-        for entry_pos in m.ps().filter(|&p| p != m.entrance && m.get(p) == '.')
-        {
-            if let Some(&p) = entry_pos
-                .neighbors(m.sz)
-                .iter()
-                .find(|&&p| m.get(p).is_ascii_uppercase())
-            {
-                let entry_char = m.get(p);
-                let exit_char = m.get(
-                    *p.neighbors(m.sz)
-                        .iter()
-                        .find(|&&p| m.get(p).is_ascii_uppercase())
-                        .ok_or_else(|| {
-                            crate::Error::boxed(Error::InvalidInput)
-                        })?,
-                );
-
-                if entry_char != exit_char {
-                    portals.push((
-                        entry_pos,
-                        entry_char,
-                        exit_char,
-                        is_outer(entry_pos, m.sz),
-                    ));
-                }
-            }
-        }
-
-        while let Some(portal) = portals.pop() {
-            let mut found = false;
-            for idx in 0..portals.len() {
-                let cand = &portals[idx];
-                if cand.3 != portal.3
-                    && ((cand.1 == portal.2 && cand.2 == portal.1)
-                        || (cand.1 == portal.1 && cand.2 == portal.2))
-                {
-                    let (outer, inner) = if portal.3 {
-                        (portal.0, cand.0)
+        let (mut found_entrance, mut found_exit) = (false, false);
+        let mut portals = HashMap::new();
+        for (p, p1, p2) in m.points().flat_map(|p| {
+            iter::repeat(p).zip(patterns.iter().cloned()).filter_map(
+                |(p, pat)| {
+                    if in_bounds(add(p, pat.0), sz)
+                        && in_bounds(add(p, pat.1), sz)
+                    {
+                        Some((p, add(p, pat.0), add(p, pat.1)))
                     } else {
-                        (cand.0, portal.0)
-                    };
-                    m.portals.push(Portal { inner, outer });
-                    portals.swap_remove(idx);
-                    found = true;
-                    break;
-                }
+                        None
+                    }
+                },
+            )
+        }) {
+            if m.get(p) != '.' {
+                continue;
             }
 
-            if !found {
-                return Err(crate::Error::boxed(Error::InvalidInput));
+            let (c1, c2) = (m.get(p1), m.get(p2));
+            if c1 == 'A' && c2 == 'A' {
+                m.entrance = p;
+                found_entrance = true;
+                continue;
+            }
+            if c1 == 'Z' && c2 == 'Z' {
+                m.exit = p;
+                found_exit = true;
+                continue;
+            }
+
+            if c1.is_ascii_uppercase() && c2.is_ascii_uppercase() {
+                let portal =
+                    portals.entry((c1, c2)).or_insert_with(Portal::new);
+                if p.0 == 2 || p.0 + 3 == sz.0 || p.1 == 2 || p.1 + 3 == sz.1 {
+                    portal.outer = p;
+                } else {
+                    portal.inner = p;
+                }
             }
         }
+
+        if !found_entrance
+            || !found_exit
+            || portals
+                .values()
+                .any(|p| p.outer == (0, 0) || p.inner == (0, 0))
+        {
+            return Err(crate::Error::boxed(Error::InvalidInput));
+        }
+
+        m.portals = portals.into_iter().map(|(_, v)| v).collect();
 
         Ok(m)
     }
 
     fn get(&self, p: Point) -> char {
-        let p = p;
         self.map[(p.0 + p.1 * self.sz.0) as usize]
     }
 
-    fn ps(&self) -> impl Iterator<Item = Point> {
+    fn points(&self) -> impl Iterator<Item = Point> {
         let sz: Sz = self.sz;
         (0..sz.1).flat_map(move |y| (0..sz.0).zip(iter::repeat(y)))
     }
 
     fn try_teleport<T: Pos>(&self, p: T) -> Option<T> {
-        self.portals.iter().find_map(|portal| {
-            if let Some(res) = p.try_enter_portal(portal) {
-                Some(res)
-            } else {
-                None
-            }
-        })
+        self.portals
+            .iter()
+            .find_map(|portal| p.try_enter_portal(portal))
     }
 
     fn reachable<T: Pos>(&self, p: T) -> impl Iterator<Item = T> {
@@ -323,7 +308,10 @@ pub fn part2(input: &str) -> crate::Result<Dist> {
     let maze = Maze::from_str(input)?;
     let entrance = PosRec::new(maze.entrance, 0);
     let dist = maze
-        .find_path([entrance.clone()].iter().cloned().collect(), vec![entrance].into())
+        .find_path(
+            [entrance.clone()].iter().cloned().collect(),
+            vec![entrance].into(),
+        )
         .ok_or_else(|| crate::Error::boxed(Error::NoPathFound))?;
 
     Ok(dist)
@@ -418,8 +406,8 @@ mod tests {
         inp.push_str("#.#E## \n");
         inp.push_str("#.....#\n");
         inp.push_str("#.#.#.#\n");
-        inp.push_str(" C D Z \n");
-        inp.push_str(" B E Z ");
+        inp.push_str(" B D Z \n");
+        inp.push_str(" C E Z ");
 
         assert_eq!(part2(&inp).unwrap(), 10);
     }
