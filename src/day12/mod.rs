@@ -16,13 +16,7 @@ fn gcd(a: i64, b: i64) -> i64 {
 }
 
 fn attract_1d(p: i32, p_o: i32) -> i32 {
-    if p < p_o {
-        1
-    } else if p > p_o {
-        -1
-    } else {
-        0
-    }
+    (p_o - p).signum()
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

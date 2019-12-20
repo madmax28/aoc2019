@@ -74,13 +74,7 @@ pub fn part2(input: &str) -> crate::Result<Value> {
                     .map(|((x, _), _)| x)
                     .ok_or_else(|| crate::Error::boxed(Error::BallNotFound))?;
 
-                iss.feed_input(if paddle < ball {
-                    1
-                } else if paddle > ball {
-                    -1
-                } else {
-                    0
-                });
+                iss.feed_input((ball - paddle).signum());
             }
             StopReason::Halted => break,
         }
