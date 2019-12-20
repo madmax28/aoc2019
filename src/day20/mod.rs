@@ -1,10 +1,8 @@
 use std::collections::{HashSet, VecDeque};
 use std::convert::Into;
-use std::fmt::Debug;
-use std::hash::Hash;
 use std::iter;
-use std::marker::Sized;
 use std::str::FromStr;
+use std::{fmt::Debug, hash::Hash, marker::Sized};
 
 #[derive(Debug)]
 enum Error {
@@ -18,17 +16,21 @@ type Point = (i32, i32);
 
 trait Pos
 where
-    Self: Sized + Debug + Eq + Clone + Copy + Hash,
+    Self: Sized + Debug + Eq + Clone + Hash,
 {
-    fn from_point(p: Point) -> Self;
+    fn pos(&self) -> Point;
+    fn depth(&self) -> i32;
     fn neighbors(&self, sz: Sz) -> Vec<Self>;
-    fn port(&self, p: Point, outer: bool) -> Option<Self>;
-    fn as_point(&self) -> Point;
+    fn try_enter_portal(&self, p: &Portal) -> Option<Self>;
 }
 
 impl Pos for Point {
-    fn from_point(p: Point) -> Self {
-        p
+    fn pos(&self) -> Point {
+        *self
+    }
+
+    fn depth(&self) -> i32 {
+        0
     }
 
     fn neighbors(&self, sz: Sz) -> Vec<Self> {
@@ -39,16 +41,18 @@ impl Pos for Point {
             .collect()
     }
 
-    fn port(&self, p: Point, _outer: bool) -> Option<Self> {
-        Some(p)
-    }
-
-    fn as_point(&self) -> Point {
-        *self
+    fn try_enter_portal(&self, p: &Portal) -> Option<Self> {
+        if *self == p.inner {
+            Some(p.outer)
+        } else if *self == p.outer {
+            Some(p.inner)
+        } else {
+            None
+        }
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct PosRec {
     pos: Point,
     depth: i32,
@@ -61,32 +65,30 @@ impl PosRec {
 }
 
 impl Pos for PosRec {
-    fn from_point(p: Point) -> Self {
-        PosRec::new(p, 0)
+    fn pos(&self) -> Point {
+        self.pos
+    }
+
+    fn depth(&self) -> i32 {
+        self.depth
     }
 
     fn neighbors(&self, sz: Sz) -> Vec<Self> {
         let d = self.depth;
-        [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        self.pos.neighbors(sz)
             .iter()
-            .map(move |p| (self.pos.0 + p.0, self.pos.1 + p.1))
-            .filter(move |p| p.0 >= 0 && p.0 < sz.0 && p.1 >= 0 && p.1 < sz.1)
-            .map(move |pp| PosRec::new(pp, d))
+            .map(move |&p| PosRec::new(p, d))
             .collect()
     }
 
-    fn port(&self, p: Point, outer: bool) -> Option<Self> {
-        if outer && self.depth > 0 {
-            Some(PosRec::new(p, self.depth - 1))
-        } else if !outer {
-            Some(PosRec::new(p, self.depth + 1))
+    fn try_enter_portal(&self, p: &Portal) -> Option<Self> {
+        if p.outer == self.pos && self.depth > 0 {
+            Some(PosRec::new(p.inner, self.depth - 1))
+        } else if p.inner == self.pos {
+            Some(PosRec::new(p.outer, self.depth + 1))
         } else {
             None
         }
-    }
-
-    fn as_point(&self) -> Point {
-        self.pos
     }
 }
 
@@ -103,42 +105,21 @@ struct Portal {
     outer: Point,
 }
 
-impl Portal {
-    fn try_enter<T>(&self, p: T) -> Option<T>
-    where
-        T: Pos,
-    {
-        if p.as_point() == self.inner {
-            p.port(self.outer, false)
-        } else if p.as_point() == self.outer {
-            p.port(self.inner, true)
-        } else {
-            None
-        }
-    }
-}
-
-struct Maze<T>
-where
-    T: Pos,
-{
+struct Maze {
     map: Vec<char>,
     sz: Sz,
-    entrance: T,
-    exit: T,
+    entrance: Point,
+    exit: Point,
     portals: Vec<Portal>,
 }
 
-impl<T> Maze<T>
-where
-    T: Pos,
-{
+impl Maze {
     fn new(map: Vec<char>, sz: Sz) -> crate::Result<Self> {
         let mut m = Maze {
             map,
             sz,
-            entrance: T::from_point((0, 0)),
-            exit: T::from_point((0, 0)),
+            entrance: (0, 0),
+            exit: (0, 0),
             portals: Vec::new(),
         };
 
@@ -190,10 +171,10 @@ where
 
                 if entry_char != exit_char {
                     portals.push((
-                        entry_pos.as_point(),
+                        entry_pos,
                         entry_char,
                         exit_char,
-                        is_outer(entry_pos.as_point(), m.sz),
+                        is_outer(entry_pos, m.sz),
                     ));
                 }
             }
@@ -227,21 +208,19 @@ where
         Ok(m)
     }
 
-    fn get(&self, p: T) -> char {
-        let p = p.as_point();
+    fn get(&self, p: Point) -> char {
+        let p = p;
         self.map[(p.0 + p.1 * self.sz.0) as usize]
     }
 
-    fn ps(&self) -> impl Iterator<Item = T> {
+    fn ps(&self) -> impl Iterator<Item = Point> {
         let sz: Sz = self.sz;
-        (0..sz.1)
-            .flat_map(move |y| (0..sz.0).zip(iter::repeat(y)))
-            .map(T::from_point)
+        (0..sz.1).flat_map(move |y| (0..sz.0).zip(iter::repeat(y)))
     }
 
-    fn port(&self, p: T) -> Option<T> {
+    fn try_teleport<T: Pos>(&self, p: T) -> Option<T> {
         self.portals.iter().find_map(|portal| {
-            if let Some(res) = portal.try_enter(p) {
+            if let Some(res) = p.try_enter_portal(portal) {
                 Some(res)
             } else {
                 None
@@ -249,19 +228,19 @@ where
         })
     }
 
-    fn reachable(&self, p: T) -> impl Iterator<Item = T> {
+    fn reachable<T: Pos>(&self, p: T) -> impl Iterator<Item = T> {
         let mut ns: Vec<T> = p
             .neighbors(self.sz)
             .into_iter()
-            .filter(|&p| self.get(p) == '.')
+            .filter(|p| self.get(p.pos()) == '.')
             .collect();
-        if let Some(p) = self.port(p) {
+        if let Some(p) = self.try_teleport(p) {
             ns.push(p)
         }
         ns.into_iter()
     }
 
-    fn find_path(
+    fn find_path<T: Pos>(
         &self,
         mut visited: HashSet<T>,
         mut queue: VecDeque<T>,
@@ -272,7 +251,7 @@ where
                 let pos = queue.pop_front().unwrap();
 
                 for n in self.reachable(pos) {
-                    if n == self.exit {
+                    if n.depth() == 0 && n.pos() == self.exit {
                         return Some(dist + 1);
                     }
 
@@ -294,17 +273,14 @@ where
     fn print(&self) {
         for y in 0..self.sz.1 {
             for x in 0..self.sz.0 {
-                print!("{}", self.get(T::from_point((x, y))));
+                print!("{}", self.get((x, y)));
             }
             println!();
         }
     }
 }
 
-impl<T> FromStr for Maze<T>
-where
-    T: Pos,
-{
+impl FromStr for Maze {
     type Err = Box<dyn std::error::Error>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -345,9 +321,9 @@ pub fn part1(input: &str) -> crate::Result<Dist> {
 
 pub fn part2(input: &str) -> crate::Result<Dist> {
     let maze = Maze::from_str(input)?;
-    let entrance: PosRec = maze.entrance;
+    let entrance = PosRec::new(maze.entrance, 0);
     let dist = maze
-        .find_path([entrance].iter().cloned().collect(), vec![entrance].into())
+        .find_path([entrance.clone()].iter().cloned().collect(), vec![entrance].into())
         .ok_or_else(|| crate::Error::boxed(Error::NoPathFound))?;
 
     Ok(dist)
