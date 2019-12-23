@@ -1,6 +1,5 @@
 use crate::day09::{Iss, Value};
 
-use std::collections::HashSet;
 use std::convert::TryFrom;
 
 #[derive(Debug)]
@@ -84,7 +83,7 @@ pub fn part2(input: &str) -> crate::Result<Value> {
 
     let mut nat = Nat { x: 0, y: 0 };
     let mut idle_iter_cnt = 0;
-    let mut ys_sent = HashSet::new();
+    let mut last_y_sent = None;
     for address in (0..50).cycle() {
         vms[address].feed_input(-1);
 
@@ -112,9 +111,12 @@ pub fn part2(input: &str) -> crate::Result<Value> {
         }
 
         if idle_iter_cnt == 50 {
-            if !ys_sent.insert(nat.y) {
-                return Ok(nat.y);
+            if let Some(last_y_sent) = last_y_sent {
+                if nat.y == last_y_sent {
+                    return Ok(nat.y);
+                }
             }
+            last_y_sent = Some(nat.y);
 
             vms[0].feed_input(nat.x);
             vms[0].feed_input(nat.y);
