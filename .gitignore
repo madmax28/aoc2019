@@ -2,3 +2,4 @@
 **/*.rs.bk
 flamegraph.svg
 perf.data*
+.vimsession
