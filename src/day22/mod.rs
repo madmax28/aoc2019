@@ -6,12 +6,7 @@ fn mod_inv(a: i128, module: i128) -> i128 {
     let mut mn = (module, a);
     let mut xy = (0, 1);
 
-    let mut iter_cnt = 0;
     while mn.1 != 0 {
-        if iter_cnt % 10_000 == 0 && iter_cnt > 0 {
-            iter_cnt += 1;
-        }
-
         xy = (xy.1, xy.0 - (mn.0 / mn.1) * xy.1);
         mn = (mn.1, mn.0 % mn.1);
     }
