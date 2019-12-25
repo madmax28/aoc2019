@@ -22,6 +22,7 @@ mod day21;
 mod day22;
 mod day23;
 mod day24;
+mod day25;
 
 use std::{env, error, fmt, fs, result};
 
@@ -194,6 +195,9 @@ fn main() -> Result<()> {
         24 => {
             println!("Part 1: {}", time(day24::part1, input.trim())?);
             println!("Part 2: {}", time(day24::part2, input.trim())?);
+        }
+        25 => {
+            println!("Part 1: {}", time(day25::part1, input.trim())?);
         }
         _ => unimplemented!(),
     }
@@ -378,5 +382,11 @@ mod tests {
         let inp = include_str!("../input/day24");
         assert_eq!(crate::day24::part1(inp.trim()).unwrap(), 18852849);
         assert_eq!(crate::day24::part2(inp.trim()).unwrap(), 1948);
+    }
+
+    #[test]
+    fn day25() {
+        let inp = include_str!("../input/day25");
+        assert_eq!(crate::day25::part1(inp.trim()).unwrap(), 8401920);
     }
 }
